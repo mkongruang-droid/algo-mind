@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ALGO MIND — Live Webhook Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Noto+Sans+Thai:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg0:#040508; --bg1:#080b11; --bg2:#0d1118; --bg3:#131820; --bg4:#1a2130;
+  --border:rgba(255,255,255,0.055); --border2:rgba(255,255,255,0.11);
+  --gold:#c8a84b; --gold2:#e5c87a; --gold-d:rgba(200,168,75,0.13);
+  --bull:#00c47a; --bull-d:rgba(0,196,122,0.1);
+  --bear:#ff3a5a; --bear-d:rgba(255,58,90,0.1);
+  --blue:#3d7eff; --blue-d:rgba(61,126,255,0.1);
+  --cyan:#00cdd1; --fib:#9d6fff; --warn:#ff9f43;
+  --text:#dde0ec; --text2:#8590a6; --text3:#434d62;
+  --mono:'JetBrains Mono',monospace; --thai:'Noto Sans Thai',sans-serif;
+  --live:#00c47a; --live-d:rgba(0,196,122,0.15);
+  --conn:#ff9f43;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg0);color:var(--text);font-family:var(--thai);font-size:13px;min-height:100vh;overflow-x:hidden}
+
+/* scanline */
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.025) 3px,rgba(0,0,0,0.025) 4px);pointer-events:none;z-index:9999}
+
+/* ── TOPBAR ── */
+.topbar{height:48px;background:var(--bg1);border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between;padding:0 20px;position:sticky;top:0;z-index:200}
+.logo-row{display:flex;align-items:center;gap:10px}
+.logo-gem{width:28px;height:28px;background:linear-gradient(135deg,var(--gold),var(--gold2));border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#040508;font-family:var(--mono)}
+.logo-name{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--gold);letter-spacing:2px}
+.logo-tag{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:1.5px;margin-top:1px}
+.topbar-right{display:flex;align-items:center;gap:12px}
+
+/* Connection Status */
+.conn-pill{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-family:var(--mono);font-size:10px;letter-spacing:1px;border:1px solid;transition:all 0.3s;cursor:pointer}
+.conn-pill.waiting{background:rgba(255,159,67,0.08);border-color:rgba(255,159,67,0.3);color:var(--warn)}
+.conn-pill.live{background:var(--live-d);border-color:rgba(0,196,122,0.3);color:var(--live)}
+.conn-dot{width:6px;height:6px;border-radius:50%}
+.waiting .conn-dot{background:var(--warn);animation:blink 1s infinite}
+.live .conn-dot{background:var(--live);box-shadow:0 0 6px var(--live);animation:pulse2 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes pulse2{0%,100%{opacity:1}50%{opacity:0.5}}
+
+.clock-box{font-family:var(--mono);font-size:11px;color:var(--text3)}
+.model-tag{padding:4px 10px;background:var(--gold-d);border:1px solid rgba(200,168,75,0.25);border-radius:4px;font-family:var(--mono);font-size:9px;color:var(--gold);letter-spacing:1px}
+
+/* ── LAYOUT ── */
+.app{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 48px)}
+
+/* ── LEFT PANEL ── */
+.left{background:var(--bg1);border-right:1px solid var(--border);overflow-y:auto;max-height:calc(100vh - 48px);display:flex;flex-direction:column}
+
+/* Webhook Config Box */
+.wh-config{border-bottom:1px solid var(--border2);padding:16px}
+.wh-title{font-family:var(--mono);font-size:9px;letter-spacing:2.5px;color:var(--text3);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.wh-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.wh-url-row{display:flex;gap:6px;align-items:center}
+.wh-url-input{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:5px;padding:7px 10px;color:var(--gold);font-family:var(--mono);font-size:10px;letter-spacing:0.5px}
+.wh-url-input:focus{outline:none;border-color:var(--gold)}
+.copy-btn{padding:7px 10px;background:var(--gold-d);border:1px solid rgba(200,168,75,0.3);border-radius:5px;color:var(--gold);font-family:var(--mono);font-size:10px;cursor:pointer;white-space:nowrap;transition:all 0.15s}
+.copy-btn:hover{background:rgba(200,168,75,0.2)}
+
+/* Live Feed Panel */
+.live-feed{border-bottom:1px solid var(--border);padding:14px 16px}
+.feed-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.feed-list{display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto}
+.feed-item{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;background:var(--bg3);border-radius:5px;border-left:2px solid transparent;font-size:11px;animation:slideIn 0.3s ease}
+@keyframes slideIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+.feed-item.buy{border-left-color:var(--bull)}
+.feed-item.sell{border-left-color:var(--bear)}
+.feed-item.info{border-left-color:var(--blue)}
+.feed-time{font-family:var(--mono);font-size:9px;color:var(--text3);white-space:nowrap;margin-top:1px}
+.feed-text{color:var(--text2);line-height:1.4;font-family:var(--mono)}
+.feed-asset{font-weight:700;font-size:11px}
+.feed-empty{font-family:var(--mono);font-size:10px;color:var(--text3);text-align:center;padding:20px;letter-spacing:1px}
+
+/* Section label */
+.sec-label{font-family:var(--mono);font-size:9px;letter-spacing:2.5px;color:var(--text3);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.sec-label::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* Panel sections */
+.psec{border-bottom:1px solid var(--border);padding:14px 16px}
+
+/* Asset row */
+.asset-pills{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.apill{padding:5px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--mono);font-size:10px;cursor:pointer;transition:all 0.15s}
+.apill:hover{border-color:var(--border2);color:var(--text)}
+.apill.active{background:var(--gold-d);border-color:var(--gold);color:var(--gold)}
+.custom-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:7px 10px;color:var(--text);font-family:var(--mono);font-size:11px;margin-top:4px}
+.custom-input:focus{outline:none;border-color:var(--gold)}
+.custom-input::placeholder{color:var(--text3)}
+
+/* TF row */
+.tf-row{display:flex;gap:4px;flex-wrap:wrap}
+.tf-pill{padding:5px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--mono);font-size:10px;cursor:pointer;transition:all 0.15s}
+.tf-pill:hover{border-color:var(--border2);color:var(--text)}
+.tf-pill.active{background:var(--blue-d);border-color:var(--blue);color:var(--blue)}
+
+/* Style row */
+.style-row{display:flex;gap:5px}
+.s-btn{flex:1;padding:7px 4px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text2);font-family:var(--mono);font-size:9px;cursor:pointer;text-align:center;transition:all 0.15s;letter-spacing:0.5px}
+.s-btn.active{background:var(--blue-d);border-color:var(--blue);color:var(--blue)}
+
+/* Field grid */
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px}
+.field{display:flex;flex-direction:column;gap:4px}
+.flabel{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.5px}
+.fi{background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:7px 9px;color:var(--text);font-family:var(--mono);font-size:12px;width:100%;transition:all 0.2s}
+.fi:focus{outline:none;border-color:var(--gold)}
+.fi::placeholder{color:var(--text3)}
+.fi.updated{border-color:var(--bull);background:rgba(0,196,122,0.06);animation:flashGreen 0.6s ease}
+@keyframes flashGreen{0%{background:rgba(0,196,122,0.2)}100%{background:rgba(0,196,122,0.06)}}
+.fi.full{width:100%}
+select.fi option{background:var(--bg2);color:var(--text)}
+
+/* Indicators */
+.ind-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.ind-chip{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;cursor:pointer;transition:all 0.15s;font-size:11px;color:var(--text2);font-family:var(--mono)}
+.ind-chip.on{border-color:rgba(0,196,122,0.3);background:var(--bull-d);color:var(--bull)}
+.chk{width:11px;height:11px;border:1px solid var(--border2);border-radius:3px;flex-shrink:0;font-size:8px;display:flex;align-items:center;justify-content:center;transition:all 0.15s}
+.ind-chip.on .chk{background:var(--bull);border-color:var(--bull);color:#040508}
+
+.ctx-ta{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:9px 10px;color:var(--text);font-family:var(--thai);font-size:12px;resize:none;min-height:72px;line-height:1.6}
+.ctx-ta:focus{outline:none;border-color:var(--gold)}
+.ctx-ta::placeholder{color:var(--text3)}
+
+/* Risk */
+.risk-auto{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px;margin-top:8px;display:flex;justify-content:space-between;align-items:center}
+.risk-auto-label{font-family:var(--mono);font-size:10px;color:var(--text3)}
+.risk-auto-val{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--warn)}
+
+/* Analyze button */
+.analyze-wrap{padding:14px 16px;background:var(--bg1);border-top:1px solid var(--border);position:sticky;bottom:0}
+.analyze-btn{width:100%;padding:13px;background:linear-gradient(135deg,var(--gold),var(--gold2));border:none;border-radius:8px;color:#040508;font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden}
+.analyze-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.12),transparent)}
+.analyze-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 8px 24px rgba(200,168,75,0.3)}
+.analyze-btn:disabled{background:var(--bg3);color:var(--text3);cursor:not-allowed;transform:none;box-shadow:none}
+
+/* ── RIGHT PANEL ── */
+.right{display:flex;flex-direction:column;overflow-y:auto;max-height:calc(100vh - 48px)}
+
+/* Metric strip */
+.metric-strip{display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid var(--border);background:var(--bg1);flex-shrink:0}
+.mc{padding:12px 14px;border-right:1px solid var(--border)}
+.mc:last-child{border-right:none}
+.mc-label{font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--text3);margin-bottom:5px}
+.mc-val{font-family:var(--mono);font-size:19px;font-weight:700;line-height:1}
+.mc-sub{font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:3px}
+
+/* Output area */
+.output{flex:1;padding:20px;display:flex;flex-direction:column;gap:14px}
+
+/* Empty / loading state */
+.empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:60px 32px}
+.empty-icon{width:56px;height:56px;border:1px solid var(--border2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:24px}
+.empty-title{font-family:var(--mono);font-size:13px;color:var(--text2);letter-spacing:1.5px}
+.empty-hint{font-size:12px;color:var(--text3);text-align:center;max-width:340px;line-height:1.7}
+
+/* Webhook waiting state */
+.wh-waiting{border:1px dashed var(--conn);border-radius:10px;padding:20px 24px;text-align:center;background:rgba(255,159,67,0.04)}
+.wh-waiting-ring{width:40px;height:40px;border:2px solid rgba(255,159,67,0.2);border-top-color:var(--conn);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.wh-waiting-text{font-family:var(--mono);font-size:11px;color:var(--conn);letter-spacing:1px}
+.wh-waiting-sub{font-size:12px;color:var(--text3);margin-top:6px;line-height:1.6}
+
+/* Loading */
+.loading-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.loading-ring{width:44px;height:44px;border:2px solid var(--border2);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite}
+.loading-steps{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:1px;text-align:center;line-height:2}
+.loading-cur{color:var(--gold)}
+
+/* Result grid */
+.rgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.rcard{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:16px 18px;animation:fadeUp 0.4s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.rcard-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.rcard-title{font-family:var(--mono);font-size:9px;letter-spacing:2.5px;color:var(--text3)}
+.rbadge{padding:2px 8px;border-radius:3px;font-family:var(--mono);font-size:10px;font-weight:600}
+.rb-bull{background:var(--bull-d);color:var(--bull);border:1px solid rgba(0,196,122,0.2)}
+.rb-bear{background:var(--bear-d);color:var(--bear);border:1px solid rgba(255,58,90,0.2)}
+.rb-neu{background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
+.rb-gold{background:var(--gold-d);color:var(--gold);border:1px solid rgba(200,168,75,0.2)}
+.rb-warn{background:rgba(255,159,67,0.1);color:var(--warn);border:1px solid rgba(255,159,67,0.2)}
+.rcard-body{font-size:13px;line-height:1.8;color:var(--text2)}
+
+/* Score bar */
+.score-row{display:flex;align-items:center;gap:10px;margin:6px 0}
+.score-track{flex:1;height:5px;background:var(--bg0);border-radius:3px;overflow:hidden}
+.score-fill{height:100%;border-radius:3px;transition:width 1s ease}
+.score-num{font-family:var(--mono);font-size:15px;font-weight:700;min-width:32px;text-align:right}
+
+/* SMC items */
+.smc-list{display:flex;flex-direction:column;gap:7px}
+.smc-row{display:flex;align-items:flex-start;gap:9px;padding:8px 10px;background:var(--bg3);border-radius:5px;border-left:2px solid var(--border2);font-size:12px}
+.smc-row.bull{border-left-color:var(--bull)}
+.smc-row.bear{border-left-color:var(--bear)}
+.smc-row.fib{border-left-color:var(--fib)}
+.smc-row.warn{border-left-color:var(--warn)}
+.smc-row.neu{border-left-color:var(--text3)}
+.smc-tag{font-family:var(--mono);font-size:9px;width:48px;flex-shrink:0;margin-top:2px}
+
+/* Fib visual */
+.fib-rows{margin-top:12px}
+.fib-row{display:flex;align-items:center;gap:9px;padding:5px 0}
+.fib-pct{font-family:var(--mono);font-size:10px;color:var(--fib);width:38px;flex-shrink:0}
+.fib-track{flex:1;height:3px;background:var(--bg0);border-radius:2px;overflow:hidden}
+.fib-fill{height:100%;border-radius:2px;transition:width 1.2s ease}
+.fib-price{font-family:var(--mono);font-size:10px;color:var(--text2);width:74px;text-align:right;flex-shrink:0}
+.fib-zone{font-family:var(--mono);font-size:9px;color:var(--text3);width:52px;flex-shrink:0}
+
+/* Entry plan */
+.entry-plan{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:16px 18px;animation:fadeUp 0.4s ease both;animation-delay:0.15s}
+.level-row{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:12px}
+.lbox{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:11px;text-align:center}
+.lbox-label{font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--text3);margin-bottom:5px}
+.lbox-val{font-family:var(--mono);font-size:14px;font-weight:700;line-height:1}
+.lbox-note{font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:3px}
+
+/* Risk summary */
+.risk-row{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:12px}
+.rbox{background:var(--bg3);border-radius:6px;padding:10px;text-align:center}
+.rbox-label{font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--text3);margin-bottom:4px}
+.rbox-val{font-family:var(--mono);font-size:16px;font-weight:700}
+
+/* AI summary */
+.ai-block{background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:9px;padding:16px 18px;animation:fadeUp 0.4s ease both;animation-delay:0.2s}
+.ai-text{font-size:13px;line-height:1.9;color:var(--text2);white-space:pre-wrap}
+.warn-box{margin-top:10px;padding:10px 12px;background:rgba(255,159,67,0.07);border:1px solid rgba(255,159,67,0.2);border-radius:6px}
+.warn-item{font-size:12px;color:var(--warn);margin-bottom:3px}
+
+/* Confluence factor bars */
+.cb-item{margin-bottom:9px}
+.cb-row{display:flex;justify-content:space-between;margin-bottom:3px}
+.cb-name{font-size:11px;color:var(--text2)}
+.cb-status{font-family:var(--mono);font-size:10px}
+.cb-track{height:2px;background:var(--bg0);border-radius:1px;overflow:hidden}
+.cb-fill{height:100%;border-radius:1px;transition:width 1.2s ease}
+
+/* Indicator analysis */
+.ind-analysis{display:flex;flex-direction:column;gap:8px}
+.ind-arow{padding:9px 11px;background:var(--bg3);border-radius:6px;border-left:2px solid var(--border2)}
+.ind-arow.bull{border-left-color:var(--bull)}
+.ind-arow.bear{border-left-color:var(--bear)}
+.ind-arow.neu{border-left-color:var(--text3)}
+.ind-atag{font-family:var(--mono);font-size:9px;color:var(--cyan);margin-bottom:3px;letter-spacing:1px}
+.ind-adesc{font-size:12px;color:var(--text2);line-height:1.5}
+
+/* Error */
+.err-box{background:var(--bear-d);border:1px solid rgba(255,58,90,0.3);border-radius:8px;padding:14px 16px;color:var(--bear);font-family:var(--mono);font-size:12px;line-height:1.7}
+
+/* Journal */
+.journal{border-top:1px solid var(--border);padding:18px 20px;flex-shrink:0}
+.jform{display:grid;grid-template-columns:120px 1fr 100px auto;gap:8px;align-items:end;margin-bottom:14px}
+.ji{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:7px 9px;color:var(--text);font-family:var(--mono);font-size:11px;width:100%}
+.ji:focus{outline:none;border-color:var(--gold)}
+.jbtn{padding:8px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--gold);font-family:var(--mono);font-size:10px;cursor:pointer;white-space:nowrap;transition:all 0.15s}
+.jbtn:hover{background:var(--gold-d);border-color:var(--gold)}
+.stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-bottom:12px}
+.spill{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:9px;text-align:center}
+.spill-val{font-family:var(--mono);font-size:15px;font-weight:700}
+.spill-label{font-family:var(--mono);font-size:8px;color:var(--text3);margin-top:3px;letter-spacing:1px}
+.jtable{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
+.jtable th{padding:7px 9px;text-align:left;color:var(--text3);border-bottom:1px solid var(--border);font-size:8px;letter-spacing:1.5px}
+.jtable td{padding:8px 9px;border-bottom:1px solid var(--border);color:var(--text2)}
+.jtable tr:last-child td{border-bottom:none}
+.jtable tr:hover td{background:var(--bg3)}
+
+/* Webhook Toast */
+.wh-toast{position:fixed;top:60px;right:20px;background:var(--bg2);border:1px solid var(--bull);border-radius:8px;padding:12px 16px;font-family:var(--mono);font-size:11px;color:var(--bull);z-index:9000;transform:translateX(120%);transition:transform 0.3s ease;max-width:280px}
+.wh-toast.show{transform:translateX(0)}
+.wh-toast-title{font-size:12px;font-weight:700;margin-bottom:4px}
+.wh-toast-body{color:var(--text2);font-size:10px;line-height:1.5}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:var(--bg1)}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px}
+
+/* Responsive */
+@media(max-width:860px){
+  .app{grid-template-columns:1fr}
+  .left{max-height:none}
+  .rgrid{grid-template-columns:1fr}
+  .level-row{grid-template-columns:1fr 1fr}
+  .jform{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- Webhook Toast Notification -->
+<div class="wh-toast" id="whToast">
+  <div class="wh-toast-title" id="whToastTitle">📡 Webhook Received</div>
+  <div class="wh-toast-body" id="whToastBody"></div>
+</div>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="logo-row">
+    <div class="logo-gem">⚡</div>
+    <div>
+      <div class="logo-name">ALGO MIND</div>
+      <div class="logo-tag">LIVE WEBHOOK · AI TRADING ANALYST</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="conn-pill waiting" id="connPill" onclick="toggleSimMode()">
+      <div class="conn-dot"></div>
+      <span id="connText">WAITING FOR WEBHOOK</span>
+    </div>
+    <div class="clock-box" id="clock">--:--:--</div>
+    <div class="model-tag">CLAUDE SONNET</div>
+  </div>
+</header>
+
+<div class="app">
+
+  <!-- ── LEFT PANEL ── -->
+  <div class="left">
+
+    <!-- Webhook Config -->
+    <div class="wh-config">
+      <div class="wh-title">WEBHOOK ENDPOINT</div>
+      <div class="wh-url-row">
+        <input class="wh-url-input" id="whUrl" value="ใช้งานบน localhost:3000/webhook" readonly>
+        <button class="copy-btn" onclick="copyWebhook()">📋 COPY</button>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:6px">
+        <button class="copy-btn" style="flex:1;background:rgba(0,196,122,0.08);border-color:rgba(0,196,122,0.3);color:var(--bull)" onclick="simulateWebhook('BUY')">▶ SIM BUY</button>
+        <button class="copy-btn" style="flex:1;background:rgba(255,58,90,0.08);border-color:rgba(255,58,90,0.3);color:var(--bear)" onclick="simulateWebhook('SELL')">▼ SIM SELL</button>
+        <button class="copy-btn" style="flex:1" onclick="simulateWebhook('INFO')">◆ SIM INFO</button>
+      </div>
+      <div style="margin-top:8px;font-family:var(--mono);font-size:9px;color:var(--text3);line-height:1.6">
+        กด SIM เพื่อทดสอบระบบ · ข้อมูลจริงมาจาก TradingView Alert Webhook
+      </div>
+    </div>
+
+    <!-- Live Feed -->
+    <div class="live-feed">
+      <div class="feed-header">
+        <div class="sec-label" style="margin-bottom:0;flex:1">LIVE FEED</div>
+        <button onclick="clearFeed()" style="font-family:var(--mono);font-size:9px;color:var(--text3);background:none;border:none;cursor:pointer;padding:0 0 0 8px">CLEAR</button>
+      </div>
+      <div class="feed-list" id="feedList">
+        <div class="feed-empty" id="feedEmpty">ยังไม่มีสัญญาณ — รอ Webhook จาก TradingView</div>
+      </div>
+    </div>
+
+    <!-- Asset -->
+    <div class="psec">
+      <div class="sec-label">ASSET</div>
+      <div class="asset-pills">
+        <div class="apill active" onclick="selAsset(this,'XAUUSD')">XAUUSD</div>
+        <div class="apill" onclick="selAsset(this,'BTCUSD')">BTCUSD</div>
+        <div class="apill" onclick="selAsset(this,'EURUSD')">EURUSD</div>
+        <div class="apill" onclick="selAsset(this,'GBPUSD')">GBPUSD</div>
+        <div class="apill" onclick="selAsset(this,'US30')">US30</div>
+        <div class="apill" onclick="selAsset(this,'NAS100')">NAS100</div>
+      </div>
+      <input class="custom-input" id="customAsset" placeholder="หรือพิมพ์ pair เอง เช่น USDJPY" oninput="setCustomAsset(this.value)">
+    </div>
+
+    <!-- TF & Style -->
+    <div class="psec">
+      <div class="sec-label">TIMEFRAME</div>
+      <div class="tf-row" style="margin-bottom:10px">
+        <div class="tf-pill" onclick="selTF(this,'M15')">M15</div>
+        <div class="tf-pill" onclick="selTF(this,'M30')">M30</div>
+        <div class="tf-pill" onclick="selTF(this,'H1')">H1</div>
+        <div class="tf-pill active" onclick="selTF(this,'H4')">H4</div>
+        <div class="tf-pill" onclick="selTF(this,'D1')">D1</div>
+        <div class="tf-pill" onclick="selTF(this,'W1')">W1</div>
+      </div>
+      <div class="sec-label">STYLE</div>
+      <div class="style-row">
+        <div class="s-btn" onclick="selStyle(this,'DAY TRADE')">DAY<br>TRADE</div>
+        <div class="s-btn active" onclick="selStyle(this,'SWING TRADE')">SWING<br>TRADE</div>
+        <div class="s-btn" onclick="selStyle(this,'TREND FOLLOW')">TREND<br>FOLLOW</div>
+      </div>
+    </div>
+
+    <!-- Price Data -->
+    <div class="psec">
+      <div class="sec-label">PRICE DATA <span style="color:var(--bull);margin-left:4px" id="autoFillBadge"></span></div>
+      <div class="fgrid">
+        <div class="field"><div class="flabel">OPEN</div><input class="fi" id="f_open" type="number" placeholder="2340.00" step="0.01"></div>
+        <div class="field"><div class="flabel">HIGH</div><input class="fi" id="f_high" type="number" placeholder="2365.00" step="0.01"></div>
+        <div class="field"><div class="flabel">LOW</div><input class="fi" id="f_low" type="number" placeholder="2325.00" step="0.01"></div>
+        <div class="field"><div class="flabel">CLOSE</div><input class="fi" id="f_close" type="number" placeholder="2355.00" step="0.01"></div>
+      </div>
+      <div class="fgrid">
+        <div class="field"><div class="flabel">VOLUME</div><input class="fi" id="f_vol" type="text" placeholder="High / Normal"></div>
+        <div class="field"><div class="flabel">ATR</div><input class="fi" id="f_atr" type="number" placeholder="12.50" step="0.01"></div>
+      </div>
+    </div>
+
+    <!-- Indicators -->
+    <div class="psec">
+      <div class="sec-label">INDICATORS <span style="color:var(--bull);margin-left:4px" id="indFillBadge"></span></div>
+      <div class="fgrid">
+        <div class="field"><div class="flabel">EMA 20</div><input class="fi" id="f_ema20" type="number" placeholder="2342.00"></div>
+        <div class="field"><div class="flabel">EMA 50</div><input class="fi" id="f_ema50" type="number" placeholder="2318.00"></div>
+        <div class="field"><div class="flabel">EMA 200</div><input class="fi" id="f_ema200" type="number" placeholder="2280.00"></div>
+        <div class="field"><div class="flabel">RSI (14)</div><input class="fi" id="f_rsi" type="number" placeholder="58" min="0" max="100"></div>
+        <div class="field"><div class="flabel">MACD LINE</div><input class="fi" id="f_macd" type="number" placeholder="4.20" step="0.01"></div>
+        <div class="field"><div class="flabel">SIGNAL LINE</div><input class="fi" id="f_sig" type="number" placeholder="2.80" step="0.01"></div>
+        <div class="field"><div class="flabel">BB UPPER</div><input class="fi" id="f_bbu" type="number" placeholder="2378.00"></div>
+        <div class="field"><div class="flabel">BB LOWER</div><input class="fi" id="f_bbl" type="number" placeholder="2308.00"></div>
+      </div>
+    </div>
+
+    <!-- SMC -->
+    <div class="psec">
+      <div class="sec-label">SMC <span style="color:var(--bull);margin-left:4px" id="smcFillBadge"></span></div>
+      <div class="fgrid">
+        <div class="field"><div class="flabel">SWING HIGH</div><input class="fi" id="f_sh" type="number" placeholder="2388.00"></div>
+        <div class="field"><div class="flabel">SWING LOW</div><input class="fi" id="f_sl2" type="number" placeholder="2285.00"></div>
+        <div class="field"><div class="flabel">FIB 618</div><input class="fi" id="f_fib618" type="number" placeholder="2323.00"></div>
+        <div class="field"><div class="flabel">FIB 382</div><input class="fi" id="f_fib382" type="number" placeholder="2349.00"></div>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <div class="flabel">MARKET STRUCTURE</div>
+        <select class="fi full" id="f_struct">
+          <option value="">-- เลือก --</option>
+          <option value="Higher High + Higher Low (HH/HL) — Uptrend">HH/HL — Uptrend</option>
+          <option value="Lower High + Lower Low (LH/LL) — Downtrend">LH/LL — Downtrend</option>
+          <option value="Equal High/Low — Range/Consolidation">Range / Consolidation</option>
+          <option value="Break of Structure (BOS) — Bullish">BOS — Bullish</option>
+          <option value="Break of Structure (BOS) — Bearish">BOS — Bearish</option>
+          <option value="Change of Character (CHoCH) — Bullish Flip">CHoCH — Bull Flip</option>
+          <option value="Change of Character (CHoCH) — Bearish Flip">CHoCH — Bear Flip</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Indicators active -->
+    <div class="psec">
+      <div class="sec-label">INDICATORS USED</div>
+      <div class="ind-grid">
+        <div class="ind-chip on" onclick="togInd(this)"><div class="chk">✓</div>SMC</div>
+        <div class="ind-chip on" onclick="togInd(this)"><div class="chk">✓</div>EMA</div>
+        <div class="ind-chip on" onclick="togInd(this)"><div class="chk">✓</div>MACD</div>
+        <div class="ind-chip on" onclick="togInd(this)"><div class="chk">✓</div>Fibonacci</div>
+        <div class="ind-chip on" onclick="togInd(this)"><div class="chk">✓</div>Bollinger</div>
+        <div class="ind-chip" onclick="togInd(this)"><div class="chk"></div>Vol Profile</div>
+        <div class="ind-chip" onclick="togInd(this)"><div class="chk"></div>Fib Fan</div>
+        <div class="ind-chip" onclick="togInd(this)"><div class="chk"></div>Fib Ext</div>
+      </div>
+    </div>
+
+    <!-- Context -->
+    <div class="psec">
+      <div class="sec-label">CONTEXT เพิ่มเติม</div>
+      <textarea class="ctx-ta" id="f_ctx" placeholder="สิ่งที่เห็นบน chart เช่น OB ที่ 2330, Rejection แถว Resistance, News วันนี้..."></textarea>
+    </div>
+
+    <!-- Risk -->
+    <div class="psec">
+      <div class="sec-label">RISK SETTINGS</div>
+      <div class="fgrid">
+        <div class="field"><div class="flabel">BALANCE (USD)</div><input class="fi" id="f_bal" type="number" value="10000"></div>
+        <div class="field"><div class="flabel">RISK % / TRADE</div><input class="fi" id="f_rp" type="number" value="1" step="0.1"></div>
+      </div>
+      <div class="risk-auto">
+        <div class="risk-auto-label">RISK AMOUNT</div>
+        <div class="risk-auto-val" id="riskAmt">$100.00</div>
+      </div>
+    </div>
+
+    <!-- Analyze -->
+    <!-- API Key -->
+    <div class="psec" style="background:rgba(200,168,75,0.04);border-top:1px solid rgba(200,168,75,0.15)">
+      <div class="sec-label" style="color:rgba(200,168,75,0.7)">ANTHROPIC API KEY</div>
+      <div style="position:relative">
+        <input id="apiKeyInput" type="password" class="fi" placeholder="sk-ant-api03-..."
+          style="width:100%;border-color:rgba(200,168,75,0.35);padding-right:52px;font-size:11px"
+          oninput="saveApiKey(this.value)">
+        <button onclick="toggleKeyVis()"
+          style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);cursor:pointer;font-family:var(--mono);font-size:9px;padding:3px 6px">SHOW</button>
+      </div>
+      <div style="margin-top:6px;font-family:var(--mono);font-size:9px;color:var(--text3);line-height:1.7">
+        รับ Key ที่ <span style="color:var(--gold)">console.anthropic.com</span> → API Keys<br>
+        เก็บใน localStorage เครื่องนี้เท่านั้น ปลอดภัย
+      </div>
+    </div>
+
+    <!-- Analyze -->
+    <div class="analyze-wrap">
+      <button class="analyze-btn" id="analyzeBtn" onclick="runAnalysis()">⚡ ANALYZE WITH CLAUDE AI</button>
+    </div>
+
+  </div><!-- end left -->
+
+  <!-- ── RIGHT PANEL ── -->
+  <div class="right" id="rightPanel">
+
+    <!-- Metric strip -->
+    <div class="metric-strip">
+      <div class="mc"><div class="mc-label">ASSET</div><div class="mc-val" id="m-asset" style="color:var(--gold);font-size:15px">XAUUSD</div><div class="mc-sub" id="m-tf">H4 · SWING</div></div>
+      <div class="mc"><div class="mc-label">BIAS</div><div class="mc-val" id="m-bias" style="color:var(--text3)">—</div><div class="mc-sub" id="m-bstr">รอวิเคราะห์</div></div>
+      <div class="mc"><div class="mc-label">CONFLUENCE</div><div class="mc-val" id="m-score" style="color:var(--text3)">—</div><div class="mc-sub">/100</div></div>
+      <div class="mc"><div class="mc-label">SIGNAL</div><div class="mc-val" id="m-sig" style="color:var(--text3);font-size:14px">WAIT</div><div class="mc-sub" id="m-rr">RR —</div></div>
+      <div class="mc"><div class="mc-label">WEBHOOK</div><div class="mc-val" id="m-wh" style="color:var(--text3);font-size:12px">IDLE</div><div class="mc-sub" id="m-wh-time">—</div></div>
+    </div>
+
+    <!-- Output -->
+    <div class="output" id="outputArea">
+
+      <!-- Empty state -->
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">⚡</div>
+        <div class="empty-title">ALGO MIND LIVE</div>
+        <div class="empty-hint">กด SIM BUY/SELL เพื่อทดสอบ Webhook auto-fill<br>หรือกรอกข้อมูลด้วยตนเองแล้วกด ANALYZE</div>
+        <div class="wh-waiting" style="width:100%;max-width:380px;margin-top:8px">
+          <div class="wh-waiting-ring"></div>
+          <div class="wh-waiting-text">LISTENING FOR WEBHOOK</div>
+          <div class="wh-waiting-sub">
+            ตั้งค่า TradingView Alert → Webhook URL<br>
+            เพิ่ม JSON payload ตาม pine_webhook_sender.pine<br>
+            ระบบจะ auto-fill ทุก field และวิเคราะห์อัตโนมัติ
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div class="loading-state" id="loadingState" style="display:none">
+        <div class="loading-ring"></div>
+        <div class="loading-steps" id="loadingSteps">
+          <div>กำลังวิเคราะห์ด้วย Claude AI</div>
+          <div class="loading-cur" id="loadingCur">Processing market data...</div>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div id="resultsArea" style="display:none"></div>
+
+    </div><!-- end output -->
+
+    <!-- Journal -->
+    <div class="journal" id="journalSec">
+      <div class="sec-label">TRADE JOURNAL</div>
+      <div class="jform">
+        <div><div class="flabel">DATE</div><input class="ji" id="j-date" type="date"></div>
+        <div><div class="flabel">TRADE</div><input class="ji" id="j-trade" placeholder="XAUUSD BUY @ 2342"></div>
+        <div><div class="flabel">RESULT (pips)</div><input class="ji" id="j-res" type="number" placeholder="+120"></div>
+        <button class="jbtn" onclick="addJournal()">+ LOG</button>
+      </div>
+      <div class="stats-row">
+        <div class="spill"><div class="spill-val" id="s-t">0</div><div class="spill-label">TRADES</div></div>
+        <div class="spill"><div class="spill-val" id="s-w" style="color:var(--bull)">0</div><div class="spill-label">WINS</div></div>
+        <div class="spill"><div class="spill-val" id="s-l" style="color:var(--bear)">0</div><div class="spill-label">LOSSES</div></div>
+        <div class="spill"><div class="spill-val" id="s-wr" style="color:var(--gold)">0%</div><div class="spill-label">WIN RATE</div></div>
+        <div class="spill"><div class="spill-val" id="s-p" style="color:var(--cyan)">0</div><div class="spill-label">NET PIPS</div></div>
+      </div>
+      <div id="jtableWrap" style="display:none">
+        <table class="jtable"><thead><tr><th>DATE</th><th>TRADE</th><th>RESULT</th><th>STATUS</th></tr></thead>
+        <tbody id="jbody"></tbody></table>
+      </div>
+    </div>
+
+  </div><!-- end right -->
+</div><!-- end app -->
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────
+let asset = 'XAUUSD', tf = 'H4', style = 'SWING TRADE';
+let journal = [], feedItems = [];
+let lastWebhook = null, autoAnalyze = false;
+
+// ── CLOCK ───────────────────────────────────────────────────────
+function tick() {
+  const n = new Date();
+  document.getElementById('clock').textContent =
+    n.toLocaleTimeString('en-GB',{hour12:false}) + ' BKK';
+}
+setInterval(tick, 1000); tick();
+document.getElementById('j-date').valueAsDate = new Date();
+
+// Risk calc
+function calcRisk() {
+  const b = parseFloat(document.getElementById('f_bal').value) || 10000;
+  const r = parseFloat(document.getElementById('f_rp').value) || 1;
+  document.getElementById('riskAmt').textContent = '$' + (b * r / 100).toFixed(2);
+}
+document.getElementById('f_bal').addEventListener('input', calcRisk);
+document.getElementById('f_rp').addEventListener('input', calcRisk);
+calcRisk();
+
+// ── SELECTORS ───────────────────────────────────────────────────
+function selAsset(el, a) {
+  document.querySelectorAll('.apill').forEach(x => x.classList.remove('active'));
+  el.classList.add('active'); asset = a;
+  document.getElementById('customAsset').value = '';
+  document.getElementById('m-asset').textContent = a;
+}
+function setCustomAsset(v) {
+  if (v.trim()) {
+    document.querySelectorAll('.apill').forEach(x => x.classList.remove('active'));
+    asset = v.trim().toUpperCase();
+    document.getElementById('m-asset').textContent = asset;
+  }
+}
+function selTF(el, t) {
+  document.querySelectorAll('.tf-pill').forEach(x => x.classList.remove('active'));
+  el.classList.add('active'); tf = t;
+  document.getElementById('m-tf').textContent = tf + ' · ' + style.split(' ')[0];
+}
+function selStyle(el, s) {
+  document.querySelectorAll('.s-btn').forEach(x => x.classList.remove('active'));
+  el.classList.add('active'); style = s;
+  document.getElementById('m-tf').textContent = tf + ' · ' + style.split(' ')[0];
+}
+function togInd(el) {
+  el.classList.toggle('on');
+  el.querySelector('.chk').textContent = el.classList.contains('on') ? '✓' : '';
+}
+
+// ── WEBHOOK SIMULATION ──────────────────────────────────────────
+const SIM_DATA = {
+  BUY: {
+    signal:'BUY', asset:'XAUUSD', timeframe:'H4',
+    open:2338.50, high:2367.20, low:2324.80, close:2358.40, volume:185420,
+    ema20:2344.20, ema50:2319.60, ema200:2281.40, rsi:61.4,
+    macd:5.82, macd_sig:3.14, bb_upper:2381.60, bb_lower:2307.20, bb_basis:2344.40,
+    swing_h:2391.00, swing_l:2287.00, fib_618:2325.60, fib_382:2351.40,
+    structure:'HH-HL-UPTREND', bull_score:8, bear_score:2,
+    entry:2358.40, sl:2339.80, tp1:2395.60, tp2:2432.80, atr:13.80
+  },
+  SELL: {
+    signal:'SELL', asset:'XAUUSD', timeframe:'H4',
+    open:2362.10, high:2379.40, low:2338.60, close:2341.20, volume:201880,
+    ema20:2357.80, ema50:2372.40, ema200:2290.60, rsi:38.2,
+    macd:-3.44, macd_sig:-1.22, bb_upper:2385.80, bb_lower:2312.60, bb_basis:2349.20,
+    swing_h:2395.00, swing_l:2289.00, fib_618:2330.40, fib_382:2356.20,
+    structure:'LH-LL-DOWNTREND', bull_score:3, bear_score:8,
+    entry:2341.20, sl:2360.90, tp1:2301.70, tp2:2262.20, atr:14.20
+  },
+  INFO: {
+    signal:'INFO', asset:'BTCUSD', timeframe:'H4',
+    open:67420, high:68850, low:66980, close:68210, volume:28450,
+    ema20:67640, ema50:65820, ema200:58400, rsi:63.8,
+    macd:182.4, macd_sig:94.6, bb_upper:70120, bb_lower:65160, bb_basis:67640,
+    swing_h:71200, swing_l:61800, fib_618:65432, fib_382:67768,
+    structure:'HH-HL-UPTREND', bull_score:7, bear_score:3,
+    entry:68210, sl:66980, tp1:70670, tp2:73130, atr:920
+  }
+};
+
+function simulateWebhook(type) {
+  const data = SIM_DATA[type] || SIM_DATA.INFO;
+  processWebhookData(data, true);
+}
+
+function processWebhookData(data, isSim = false) {
+  lastWebhook = data;
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-GB',{hour12:false});
+
+  // Update connection status
+  const pill = document.getElementById('connPill');
+  pill.className = 'conn-pill live';
+  document.getElementById('connText').textContent = isSim ? 'SIM ACTIVE' : 'LIVE CONNECTED';
+
+  // Update webhook metric
+  document.getElementById('m-wh').textContent = data.signal || 'DATA';
+  document.getElementById('m-wh').style.color = data.signal === 'BUY' ? 'var(--bull)' : data.signal === 'SELL' ? 'var(--bear)' : 'var(--cyan)';
+  document.getElementById('m-wh-time').textContent = timeStr;
+
+  // Auto-select asset & TF if provided
+  if (data.asset) {
+    asset = data.asset;
+    document.getElementById('m-asset').textContent = asset;
+    document.querySelectorAll('.apill').forEach(x => {
+      if (x.textContent === asset) x.classList.add('active');
+      else x.classList.remove('active');
+    });
+  }
+
+  // AUTO-FILL all fields with flash animation
+  const fieldMap = {
+    'f_open': data.open, 'f_high': data.high, 'f_low': data.low,
+    'f_close': data.close, 'f_atr': data.atr,
+    'f_ema20': data.ema20, 'f_ema50': data.ema50, 'f_ema200': data.ema200,
+    'f_rsi': data.rsi, 'f_macd': data.macd, 'f_sig': data.macd_sig,
+    'f_bbu': data.bb_upper, 'f_bbl': data.bb_lower,
+    'f_sh': data.swing_h, 'f_sl2': data.swing_l,
+    'f_fib618': data.fib_618, 'f_fib382': data.fib_382
+  };
+
+  Object.entries(fieldMap).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el && val != null) {
+      el.value = typeof val === 'number' ? parseFloat(val.toFixed(4)) : val;
+      el.classList.remove('updated');
+      void el.offsetWidth; // reflow
+      el.classList.add('updated');
+    }
+  });
+
+  // Volume string
+  if (data.volume) {
+    const volRel = data.volume / 150000;
+    document.getElementById('f_vol').value = volRel > 1.5 ? 'Very High' : volRel > 1.2 ? 'High' : volRel > 0.8 ? 'Normal' : 'Low';
+  }
+
+  // Structure
+  const structMap = {
+    'HH-HL-UPTREND': "Higher High + Higher Low (HH/HL) — Uptrend",
+    'LH-LL-DOWNTREND': "Lower High + Lower Low (LH/LL) — Downtrend",
+    'BOS-BULLISH': "Break of Structure (BOS) — Bullish",
+    'BOS-BEARISH': "Break of Structure (BOS) — Bearish",
+    'RANGE': "Equal High/Low — Range/Consolidation"
+  };
+  if (data.structure) {
+    const sel = document.getElementById('f_struct');
+    const matched = structMap[data.structure] || '';
+    sel.value = matched;
+  }
+
+  // Badges
+  document.getElementById('autoFillBadge').textContent = '✓ AUTO-FILLED';
+  document.getElementById('indFillBadge').textContent = '✓ AUTO-FILLED';
+  document.getElementById('smcFillBadge').textContent = '✓ AUTO-FILLED';
+
+  // Add to feed
+  addFeedItem(data, timeStr);
+
+  // Show toast
+  showToast(data, timeStr, isSim);
+
+  // Hide empty state
+  document.getElementById('emptyState').style.display = 'none';
+
+  // Auto-analyze if BUY or SELL
+  if (data.signal === 'BUY' || data.signal === 'SELL') {
+    setTimeout(() => runAnalysis(), 600);
+  }
+}
+
+function addFeedItem(data, timeStr) {
+  const cls = data.signal === 'BUY' ? 'buy' : data.signal === 'SELL' ? 'sell' : 'info';
+  const sigColor = data.signal === 'BUY' ? 'var(--bull)' : data.signal === 'SELL' ? 'var(--bear)' : 'var(--cyan)';
+  const item = { cls, timeStr, data };
+  feedItems.unshift(item);
+  if (feedItems.length > 20) feedItems.pop();
+  renderFeed();
+}
+
+function renderFeed() {
+  const list = document.getElementById('feedList');
+  const empty = document.getElementById('feedEmpty');
+  if (feedItems.length === 0) {
+    empty.style.display = 'block'; return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = feedItems.slice(0, 8).map(it => {
+    const d = it.data;
+    const sigColor = d.signal === 'BUY' ? 'var(--bull)' : d.signal === 'SELL' ? 'var(--bear)' : 'var(--cyan)';
+    return `<div class="feed-item ${it.cls}">
+      <div class="feed-time">${it.timeStr}</div>
+      <div class="feed-text">
+        <span class="feed-asset" style="color:${sigColor}">${d.signal || 'DATA'}</span>
+        <span style="color:var(--gold)"> ${d.asset || asset}</span>
+        ${d.close ? ` @ ${parseFloat(d.close).toFixed(2)}` : ''}
+        ${d.bull_score != null ? ` · Score ${d.bull_score}/10` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function clearFeed() {
+  feedItems = [];
+  renderFeed();
+}
+
+let toastTimer;
+function showToast(data, timeStr, isSim) {
+  const toast = document.getElementById('whToast');
+  const sigColor = data.signal === 'BUY' ? 'var(--bull)' : data.signal === 'SELL' ? 'var(--bear)' : 'var(--cyan)';
+  document.getElementById('whToastTitle').innerHTML =
+    `📡 ${isSim ? 'SIMULATED' : 'LIVE'} WEBHOOK — <span style="color:${sigColor}">${data.signal || 'DATA'}</span>`;
+  document.getElementById('whToastBody').innerHTML =
+    `${data.asset || asset} @ ${data.close ? parseFloat(data.close).toFixed(2) : '—'}<br>` +
+    `Auto-filled ${Object.keys(data).length} fields · Analyzing...`;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 4000);
+}
+
+function copyWebhook() {
+  const url = 'http://localhost:3000/webhook';
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = event.target;
+    btn.textContent = '✓ COPIED';
+    setTimeout(() => btn.textContent = '📋 COPY', 2000);
+  });
+}
+
+function toggleSimMode() {
+  simulateWebhook('INFO');
+}
+
+// ── GATHER DATA ──────────────────────────────────────────────────
+function gather() {
+  const inds = [];
+  document.querySelectorAll('.ind-chip.on').forEach(el => {
+    inds.push(el.textContent.replace('✓','').trim());
+  });
+  return {
+    asset, tf, style,
+    open: document.getElementById('f_open').value,
+    high: document.getElementById('f_high').value,
+    low:  document.getElementById('f_low').value,
+    close:document.getElementById('f_close').value,
+    vol:  document.getElementById('f_vol').value,
+    atr:  document.getElementById('f_atr').value,
+    ema20: document.getElementById('f_ema20').value,
+    ema50: document.getElementById('f_ema50').value,
+    ema200:document.getElementById('f_ema200').value,
+    rsi:   document.getElementById('f_rsi').value,
+    macd:  document.getElementById('f_macd').value,
+    sig:   document.getElementById('f_sig').value,
+    bbu:   document.getElementById('f_bbu').value,
+    bbl:   document.getElementById('f_bbl').value,
+    sh:    document.getElementById('f_sh').value,
+    sl2:   document.getElementById('f_sl2').value,
+    fib618:document.getElementById('f_fib618').value,
+    fib382:document.getElementById('f_fib382').value,
+    struct:document.getElementById('f_struct').value,
+    ctx:   document.getElementById('f_ctx').value,
+    bal:   document.getElementById('f_bal').value || 10000,
+    rp:    document.getElementById('f_rp').value || 1,
+    inds
+  };
+}
+
+// ── BUILD PROMPT ─────────────────────────────────────────────────
+function buildPrompt(d) {
+  const webhookNote = lastWebhook
+    ? `\n⚡ ข้อมูลนี้มาจาก TradingView Webhook อัตโนมัติ — Bull Score: ${lastWebhook.bull_score || '?'}/10, Bear Score: ${lastWebhook.bear_score || '?'}/10`
+    : '';
+
+  return `คุณคือ AI Trading Analyst ผู้เชี่ยวชาญ วิเคราะห์ด้วย SMC, EMA, Fibonacci, MACD, Bollinger Bands${webhookNote}
+
+MARKET DATA (จาก TradingView Webhook):
+Asset: ${d.asset} | Timeframe: ${d.tf} | Style: ${d.style}
+OHLC: O=${d.open||'N/A'} H=${d.high||'N/A'} L=${d.low||'N/A'} C=${d.close||'N/A'}
+Volume: ${d.vol||'N/A'} | ATR: ${d.atr||'N/A'}
+EMA20=${d.ema20||'N/A'} EMA50=${d.ema50||'N/A'} EMA200=${d.ema200||'N/A'}
+RSI=${d.rsi||'N/A'} | MACD=${d.macd||'N/A'} Signal=${d.sig||'N/A'}
+BB Upper=${d.bbu||'N/A'} Lower=${d.bbl||'N/A'}
+Swing H=${d.sh||'N/A'} Swing L=${d.sl2||'N/A'}
+Fib 61.8%=${d.fib618||'N/A'} Fib 38.2%=${d.fib382||'N/A'}
+Market Structure: ${d.struct||'N/A'}
+Indicators: ${d.inds.join(', ')}
+Context: ${d.ctx||'ไม่มี'}
+Account: $${d.bal} | Risk/Trade: ${d.rp}%
+
+ตอบ JSON เท่านั้น (ห้ามมีข้อความอื่น):
+{
+  "bias":"BULLISH|BEARISH|NEUTRAL",
+  "bias_strength":"Strong|Moderate|Weak",
+  "confluence_score":0-100,
+  "signal":"BUY|SELL|WAIT",
+  "signal_confidence":"High|Medium|Low",
+  "market_structure":{"trend":"...","bos":"...","choch":"...","order_blocks":"...","fvg":"..."},
+  "ema_analysis":{"stack":"Bull Stack|Bear Stack|Mixed","position":"...","signal":"..."},
+  "macd_analysis":{"momentum":"Bullish|Bearish|Neutral","crossover":"...","histogram":"Growing|Shrinking|Flat"},
+  "bollinger_analysis":{"position":"...","squeeze":"Yes|No","signal":"..."},
+  "fibonacci":{
+    "swing_high":${parseFloat(d.sh)||0},
+    "swing_low":${parseFloat(d.sl2)||0},
+    "fib_382":${parseFloat(d.fib382)||0},
+    "fib_500":${((parseFloat(d.sh)||0)+(parseFloat(d.sl2)||0))/2 || 0},
+    "fib_618":${parseFloat(d.fib618)||0},
+    "current_zone":"...",
+    "key_zone":"..."
+  },
+  "entry_plan":{"direction":"BUY|SELL|WAIT","entry":0,"stop_loss":0,"tp1":0,"tp2":0,"rr_ratio":0,"sl_pips":0},
+  "risk_management":{"risk_usd":${(parseFloat(d.bal)*parseFloat(d.rp)/100).toFixed(0)},"lot_size":0,"max_loss_pct":${d.rp},"advice":"..."},
+  "confluence_breakdown":[{"factor":"...","status":"Bullish|Bearish|Neutral","weight":1-10,"note":"..."}],
+  "trade_summary":"สรุปภาษาไทย 3-5 ประโยค อธิบายสถานการณ์ตลาด เหตุผล entry และสิ่งที่ต้องระวัง",
+  "warnings":["..."],
+  "wait_for":"..."
+}`;
+}
+
+// ── LOADING STEPS ────────────────────────────────────────────────
+const STEPS = [
+  'Processing Webhook data...','Analyzing SMC Structure...',
+  'Calculating EMA confluence...','Processing Fibonacci levels...',
+  'Reading MACD momentum...','Evaluating Bollinger position...',
+  'Computing risk parameters...','Generating trade plan...'
+];
+let stepInt;
+function startLoading() {
+  let i = 0;
+  document.getElementById('loadingCur').textContent = STEPS[0];
+  stepInt = setInterval(() => {
+    i = (i + 1) % STEPS.length;
+    document.getElementById('loadingCur').textContent = STEPS[i];
+  }, 1200);
+}
+function stopLoading() { clearInterval(stepInt); }
+
+// ── MAIN ANALYSIS ────────────────────────────────────────────────
+async function runAnalysis() {
+  const d = gather();
+  if (!d.close && !d.high) {
+    alert('กรุณากรอก CLOSE price หรือรอ Webhook จาก TradingView'); return;
+  }
+
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('loadingState').style.display = 'flex';
+  document.getElementById('resultsArea').style.display = 'none';
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('analyzeBtn').textContent = '⏳ ANALYZING...';
+  startLoading();
+
+  // ── ตรวจสอบ API Key ก่อน ──
+  const apiKey = document.getElementById('apiKeyInput')?.value?.trim();
+  if (!apiKey || !apiKey.startsWith('sk-ant-')) {
+    stopLoading();
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('resultsArea').style.display = 'block';
+    document.getElementById('resultsArea').innerHTML = `
+      <div class="err-box" style="border-color:rgba(200,168,75,0.4);color:var(--gold);background:var(--gold-d)">
+        🔑 กรุณากรอก Anthropic API Key ก่อนวิเคราะห์<br>
+        <span style="font-size:11px;color:var(--text3)">
+          ได้จาก console.anthropic.com → API Keys → Create Key<br>
+          Key มีรูปแบบ: sk-ant-api03-...
+        </span>
+      </div>`;
+    document.getElementById('analyzeBtn').disabled = false;
+    document.getElementById('analyzeBtn').textContent = '⚡ ANALYZE WITH CLAUDE AI';
+    return;
+  }
+
+  try {
+    // Timeout 45 วินาที — ป้องกัน hang ตลอด
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: buildPrompt(d) }]
+      })
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      const msg = errData?.error?.message || `HTTP ${res.status}`;
+      throw new Error('API Error: ' + msg);
+    }
+
+    const result = await res.json();
+    const raw = result.content?.map(c => c.text || '').join('') || '';
+
+    if (!raw) throw new Error('ไม่ได้รับข้อมูลจาก Claude — กรุณาลองใหม่');
+
+    let analysis;
+    try {
+      const m = raw.match(/\{[\s\S]*\}/);
+      analysis = JSON.parse(m ? m[0] : raw);
+    } catch(e) {
+      throw new Error('วิเคราะห์ผลไม่สำเร็จ — กรุณาลองใหม่');
+    }
+
+    stopLoading();
+    renderResults(analysis, d);
+
+  } catch(err) {
+    stopLoading();
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('resultsArea').style.display = 'block';
+
+    let errMsg = err.message;
+    if (err.name === 'AbortError') errMsg = 'หมดเวลา (45 วินาที) — กรุณาตรวจสอบ API Key และลองใหม่';
+    if (err.message.includes('Failed to fetch')) errMsg = 'ไม่สามารถเชื่อมต่อ API ได้ — ตรวจสอบ API Key หรือ Network';
+
+    document.getElementById('resultsArea').innerHTML =
+      `<div class="err-box">⚠ ${errMsg}</div>`;
+    document.getElementById('analyzeBtn').disabled = false;
+    document.getElementById('analyzeBtn').textContent = '⚡ ANALYZE WITH CLAUDE AI';
+  }
+}
+
+// ── RENDER RESULTS ───────────────────────────────────────────────
+function renderResults(a, d) {
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('analyzeBtn').disabled = false;
+  document.getElementById('analyzeBtn').textContent = '⚡ ANALYZE AGAIN';
+
+  const biasCol = a.bias === 'BULLISH' ? 'var(--bull)' : a.bias === 'BEARISH' ? 'var(--bear)' : 'var(--text2)';
+  const sigCol  = a.signal === 'BUY'   ? 'var(--bull)' : a.signal === 'SELL'   ? 'var(--bear)' : 'var(--text2)';
+  const scCol   = (a.confluence_score||0) >= 70 ? 'var(--bull)' : (a.confluence_score||0) >= 50 ? 'var(--warn)' : 'var(--bear)';
+
+  // Update metrics
+  document.getElementById('m-bias').textContent = a.bias || '—';
+  document.getElementById('m-bias').style.color = biasCol;
+  document.getElementById('m-bstr').textContent = a.bias_strength || '';
+  document.getElementById('m-score').textContent = a.confluence_score || '—';
+  document.getElementById('m-score').style.color = scCol;
+  document.getElementById('m-sig').textContent = a.signal || 'WAIT';
+  document.getElementById('m-sig').style.color = sigCol;
+  document.getElementById('m-rr').textContent = a.entry_plan?.rr_ratio ? 'RR ' + parseFloat(a.entry_plan.rr_ratio).toFixed(1) : 'RR —';
+
+  const ep = a.entry_plan || {}, fib = a.fibonacci || {}, ms = a.market_structure || {};
+  const cb = a.confluence_breakdown || [];
+  const sc = a.confluence_score || 0;
+  const scW = Math.min(100, sc);
+  const bBadge = a.bias === 'BULLISH' ? 'rb-bull' : a.bias === 'BEARISH' ? 'rb-bear' : 'rb-neu';
+  const sBadge = a.signal === 'BUY' ? 'rb-bull' : a.signal === 'SELL' ? 'rb-bear' : 'rb-neu';
+  const eCol = ep.direction === 'BUY' ? 'var(--bull)' : ep.direction === 'SELL' ? 'var(--bear)' : 'var(--text2)';
+
+  // SMC rows
+  const smcItems = [
+    { cls: ms.trend?.toLowerCase().includes('up') ? 'bull' : ms.trend?.toLowerCase().includes('down') ? 'bear' : 'neu', tag:'TREND', txt: ms.trend||'—' },
+    { cls: ms.bos?.toLowerCase().includes('bull') ? 'bull' : ms.bos?.toLowerCase().includes('bear') ? 'bear' : 'neu', tag:'BOS', txt: ms.bos||'—' },
+    { cls: ms.choch?.toLowerCase().includes('bull') ? 'bull' : ms.choch?.toLowerCase().includes('bear') ? 'bear' : 'neu', tag:'CHoCH', txt: ms.choch||'—' },
+    { cls:'fib', tag:'OB', txt: ms.order_blocks||'—' },
+    { cls:'warn', tag:'FVG', txt: ms.fvg||'—' }
+  ];
+  const tagCol = {bull:'var(--bull)',bear:'var(--bear)',fib:'var(--fib)',warn:'var(--warn)',neu:'var(--text3)'};
+  const smcHTML = smcItems.map(s =>
+    `<div class="smc-row ${s.cls}"><div class="smc-tag" style="color:${tagCol[s.cls]}">${s.tag}</div><div>${s.desc||s.txt}</div></div>`
+  ).join('');
+
+  // Fib rows
+  const fibLvls = [
+    {pct:'0.236',val:fib.fib_236,col:'#c89cff',w:24},
+    {pct:'0.382',val:fib.fib_382||fib.fib382,col:'#b48eff',w:38},
+    {pct:'0.500',val:fib.fib_500||fib.fib500,col:'#ffb347',w:50},
+    {pct:'0.618',val:fib.fib_618||fib.fib618,col:'#ffd700',w:62},
+    {pct:'0.786',val:fib.fib_786||fib.fib786,col:'#ff8c8c',w:79}
+  ];
+  const fibHTML = fibLvls.map(f =>
+    `<div class="fib-row">
+      <div class="fib-pct" style="color:${f.col}">${f.pct}</div>
+      <div class="fib-track"><div class="fib-fill" style="width:${f.w}%;background:${f.col}"></div></div>
+      <div class="fib-price">${f.val ? parseFloat(f.val).toFixed(2) : '—'}</div>
+      <div class="fib-zone">${f.pct==='0.618'?'⭐ GOLDEN':f.pct==='0.500'?'MID':''}</div>
+    </div>`
+  ).join('');
+
+  // Confluence bars
+  const cbHTML = cb.slice(0,6).map(c => {
+    const cc = c.status==='Bullish'?'var(--bull)':c.status==='Bearish'?'var(--bear)':'var(--text2)';
+    const bw = Math.min(100,(c.weight||5)*10);
+    return `<div class="cb-item">
+      <div class="cb-row"><span class="cb-name">${c.factor}</span><span class="cb-status" style="color:${cc}">${c.status}</span></div>
+      <div class="cb-track"><div class="cb-fill" style="width:${bw}%;background:${cc}"></div></div>
+      <div style="font-size:10px;color:var(--text3);margin-top:2px">${c.note||''}</div>
+    </div>`;
+  }).join('');
+
+  // Warnings
+  const warnHTML = (a.warnings||[]).length
+    ? `<div class="warn-box">${(a.warnings||[]).map(w=>`<div class="warn-item">⚠ ${w}</div>`).join('')}</div>` : '';
+
+  const waitHTML = a.wait_for
+    ? `<div style="margin-top:8px;padding:9px 11px;background:var(--bg3);border-radius:5px;font-size:12px;color:var(--text2)"><span style="font-family:var(--mono);font-size:9px;color:var(--text3)">WAIT FOR → </span>${a.wait_for}</div>` : '';
+
+  // Webhook source badge
+  const whBadge = lastWebhook
+    ? `<div style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:var(--live-d);border:1px solid rgba(0,196,122,0.2);border-radius:4px;font-family:var(--mono);font-size:9px;color:var(--bull);margin-bottom:12px">
+        <div style="width:5px;height:5px;border-radius:50%;background:var(--bull)"></div>DATA FROM TRADINGVIEW WEBHOOK</div>` : '';
+
+  const html = `
+    ${whBadge}
+    <div class="rgrid">
+      <div class="rcard">
+        <div class="rcard-head"><div class="rcard-title">SMC — MARKET STRUCTURE</div><span class="rbadge ${bBadge}">${a.bias||'NEUTRAL'}</span></div>
+        <div class="smc-list">${smcHTML}</div>
+      </div>
+      <div class="rcard">
+        <div class="rcard-head"><div class="rcard-title">CONFLUENCE SCORE</div><span class="rbadge rb-gold">${sc}/100</span></div>
+        <div class="score-row" style="margin-bottom:14px">
+          <div class="score-track"><div class="score-fill" style="width:${scW}%;background:${scCol}"></div></div>
+          <div class="score-num" style="color:${scCol}">${sc}</div>
+        </div>
+        ${cbHTML}
+      </div>
+    </div>
+    <div class="rgrid">
+      <div class="rcard" style="animation-delay:0.1s">
+        <div class="rcard-head"><div class="rcard-title">FIBONACCI RETRACEMENT</div><span class="rbadge rb-gold">${fib.current_zone||'—'}</span></div>
+        <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--text3);margin-bottom:8px">
+          <span>H: ${fib.swing_high ? parseFloat(fib.swing_high).toFixed(2) : '—'}</span>
+          <span>L: ${fib.swing_low ? parseFloat(fib.swing_low).toFixed(2) : '—'}</span>
+          <span style="color:var(--fib)">Key: ${fib.key_zone||'—'}</span>
+        </div>
+        <div class="fib-rows">${fibHTML}</div>
+      </div>
+      <div class="rcard" style="animation-delay:0.1s">
+        <div class="rcard-head"><div class="rcard-title">INDICATOR ANALYSIS</div><span class="rbadge ${sBadge}">${a.signal||'WAIT'}</span></div>
+        <div class="ind-analysis">
+          <div class="ind-arow ${a.ema_analysis?.stack?.includes('Bull')?'bull':a.ema_analysis?.stack?.includes('Bear')?'bear':'neu'}">
+            <div class="ind-atag">EMA</div>
+            <div class="ind-adesc"><strong style="color:var(--text)">${a.ema_analysis?.stack||'—'}</strong><br>${a.ema_analysis?.position||''}</div>
+          </div>
+          <div class="ind-arow ${a.macd_analysis?.momentum==='Bullish'?'bull':a.macd_analysis?.momentum==='Bearish'?'bear':'neu'}">
+            <div class="ind-atag">MACD</div>
+            <div class="ind-adesc"><strong style="color:var(--text)">${a.macd_analysis?.momentum||'—'}</strong> · ${a.macd_analysis?.crossover||''}<br><span style="color:var(--text3)">${a.macd_analysis?.histogram||''}</span></div>
+          </div>
+          <div class="ind-arow neu">
+            <div class="ind-atag">BOLLINGER</div>
+            <div class="ind-adesc">${a.bollinger_analysis?.position||'—'}<br><span style="color:${a.bollinger_analysis?.squeeze==='Yes'?'var(--warn)':'var(--text3)'}">${a.bollinger_analysis?.squeeze==='Yes'?'⚡ Squeeze Detected':'No Squeeze'}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="entry-plan">
+      <div class="rcard-head"><div class="rcard-title">ENTRY PLAN — TRADE SETUP</div><span class="rbadge ${sBadge}">${ep.direction||'WAIT'} · ${a.signal_confidence||'—'} Confidence</span></div>
+      <div class="level-row">
+        <div class="lbox"><div class="lbox-label">ENTRY</div><div class="lbox-val" style="color:${eCol}">${ep.entry?parseFloat(ep.entry).toFixed(2):'—'}</div><div class="lbox-note">${ep.direction||'—'}</div></div>
+        <div class="lbox"><div class="lbox-label">STOP LOSS</div><div class="lbox-val" style="color:var(--bear)">${ep.stop_loss?parseFloat(ep.stop_loss).toFixed(2):'—'}</div><div class="lbox-note">${ep.sl_pips?ep.sl_pips+' pips':'—'}</div></div>
+        <div class="lbox"><div class="lbox-label">TP 1</div><div class="lbox-val" style="color:var(--bull)">${ep.tp1?parseFloat(ep.tp1).toFixed(2):'—'}</div><div class="lbox-note">Take Profit 1</div></div>
+        <div class="lbox"><div class="lbox-label">TP 2</div><div class="lbox-val" style="color:var(--bull)">${ep.tp2?parseFloat(ep.tp2).toFixed(2):'—'}</div><div class="lbox-note">RR ${ep.rr_ratio?parseFloat(ep.rr_ratio).toFixed(1):'—'}</div></div>
+      </div>
+      <div class="risk-row">
+        <div class="rbox"><div class="rbox-label">RISK USD</div><div class="rbox-val" style="color:var(--warn)">$${a.risk_management?.risk_usd||'—'}</div></div>
+        <div class="rbox"><div class="rbox-label">LOT SIZE</div><div class="rbox-val" style="color:var(--gold)">${a.risk_management?.lot_size||'—'}</div></div>
+        <div class="rbox"><div class="rbox-label">RISK %</div><div class="rbox-val" style="color:var(--text2)">${a.risk_management?.max_loss_pct||'—'}%</div></div>
+      </div>
+      ${a.risk_management?.advice?`<div style="margin-top:10px;font-size:12px;color:var(--text3);line-height:1.7;border-top:1px solid var(--border);padding-top:10px">${a.risk_management.advice}</div>`:''}
+    </div>
+    <div class="ai-block">
+      <div class="rcard-head"><div class="rcard-title">AI ANALYSIS — CLAUDE SONNET</div><span class="rbadge ${lastWebhook?'rb-bull':'rb-gold'}">${lastWebhook?'FROM WEBHOOK':'MANUAL INPUT'}</span></div>
+      <div class="ai-text">${a.trade_summary||'—'}</div>
+      ${warnHTML}${waitHTML}
+    </div>`;
+
+  document.getElementById('resultsArea').innerHTML = html;
+  document.getElementById('resultsArea').style.display = 'block';
+}
+
+// ── JOURNAL ──────────────────────────────────────────────────────
+function addJournal() {
+  const date = document.getElementById('j-date').value;
+  const trade = document.getElementById('j-trade').value.trim();
+  const res = parseFloat(document.getElementById('j-res').value);
+  if (!trade || isNaN(res)) { alert('กรอก Trade และ Result ให้ครบ'); return; }
+  journal.unshift({ date, trade, res });
+  document.getElementById('j-trade').value = '';
+  document.getElementById('j-res').value = '';
+  renderJournal();
+}
+function renderJournal() {
+  const w = journal.filter(e => e.res > 0).length;
+  const l = journal.filter(e => e.res < 0).length;
+  const t = journal.length;
+  const net = journal.reduce((s,e) => s + e.res, 0);
+  const wr = t > 0 ? ((w/t)*100).toFixed(0) : 0;
+  document.getElementById('s-t').textContent = t;
+  document.getElementById('s-w').textContent = w;
+  document.getElementById('s-l').textContent = l;
+  document.getElementById('s-wr').textContent = wr + '%';
+  document.getElementById('s-wr').style.color = parseInt(wr) >= 50 ? 'var(--bull)' : 'var(--bear)';
+  document.getElementById('s-p').textContent = (net >= 0 ? '+' : '') + net;
+  document.getElementById('s-p').style.color = net >= 0 ? 'var(--bull)' : 'var(--bear)';
+  document.getElementById('jbody').innerHTML = journal.slice(0,10).map(e =>
+    `<tr><td>${e.date}</td><td>${e.trade}</td>
+     <td style="color:${e.res>0?'var(--bull)':'var(--bear)'};font-weight:700">${e.res>0?'+':''}${e.res}</td>
+     <td><span class="rbadge ${e.res>0?'rb-bull':'rb-bear'}" style="font-size:9px">${e.res>0?'WIN':'LOSS'}</span></td></tr>`
+  ).join('');
+  document.getElementById('jtableWrap').style.display = t > 0 ? 'block' : 'none';
+}
+
+// Simulate webhook on BTCUSD as demo after 1.5s (remove if not needed)
+// setTimeout(() => simulateWebhook('INFO'), 1500);
+
+// ── API KEY HELPERS ──────────────────────────────────────────────
+function saveApiKey(val) {
+  if (val.trim()) localStorage.setItem('algomind_apikey', val.trim());
+}
+function toggleKeyVis() {
+  const inp = document.getElementById('apiKeyInput');
+  const btn = event.target;
+  if (inp.type === 'password') {
+    inp.type = 'text'; btn.textContent = 'HIDE';
+  } else {
+    inp.type = 'password'; btn.textContent = 'SHOW';
+  }
+}
+// Load saved key on startup
+(function loadKey() {
+  const saved = localStorage.getItem('algomind_apikey');
+  if (saved) {
+    const inp = document.getElementById('apiKeyInput');
+    if (inp) inp.value = saved;
+  }
+})();
+</script>
+</body>
+</html>
