@@ -244,16 +244,39 @@ ON new bar close (Entry TF):
 
 ---
 
-## 11. หมายเหตุแพลตฟอร์ม (ยังไม่ได้เลือก)
+## 11. แพลตฟอร์ม: TradingView + Eightcap (ตัดสินใจแล้ว)
 
-| | MT5 (MQL5 EA) | TradingView (Pine Script + Webhook) |
-|---|---|---|
-| Volume Profile | คำนวณเองจากแท่ง M1 (`CopyRates` + tick volume) | คำนวณเองด้วย `request.security_lower_tf` (มีลิมิตจำนวนแท่ง) เพราะ Pine อ่านค่าจากอินดิเคเตอร์ VP ในตัวไม่ได้ |
-| ส่งคำสั่ง | ส่งตรงไปที่ broker | ส่ง alert → backend ALGO MIND → broker API |
-| Backtest | Strategy Tester (tick จริง) | Strategy Tester (ข้อมูลแท่ง, คร่าว ๆ กว่า) |
-| สินทรัพย์ | ขึ้นกับ broker | หลากหลาย, BTC มี volume จริง |
+**โค้ด:** `pine/algomind_xauusd_day_v1.pine` (Pine Script v6 `strategy()`) สำหรับชาร์ต `EIGHTCAP:XAUUSD` 30m
 
----
+**เส้นทางส่งคำสั่ง**
+```
+TradingView strategy ──alert() JSON──► Webhook ──► Bridge ──► MT5 (บัญชี Eightcap)
+                                                   (PineConnector หรือ backend ALGO MIND)
+```
+- TradingView ไม่ส่งคำสั่งของ strategy ไปที่ broker อัตโนมัติ ต้องมี bridge มารับ webhook
+- Webhook ต้องใช้แพ็กเกจ TradingView แบบเสียเงิน และใน MT5 ต้องเปิด Algo Trading
+- ต้องตรวจกับ Eightcap ว่าบัญชีที่ใช้อนุญาตให้รัน EA/bridge ได้ และชื่อ symbol ใน MT5 ตรงกับที่ตั้งไว้
+
+**ข้อความ webhook ที่ script ส่งออก**
+```json
+{"secret":"…","symbol":"XAUUSD","action":"BUY","grade":"A","risk_pct":1.0,
+ "entry":2622.10,"sl":2612.00,"tp1":2640.00,"tp2":2683.60,"tp3":2700.90,
+ "split":[50,30,20],"be_after_tp1":true,"trail_after_tp2":true,
+ "zone":"VAL","trigger":"CHoCH"}
+{"secret":"…","symbol":"XAUUSD","action":"MODIFY_SL","sl":2622.10}
+{"secret":"…","symbol":"XAUUSD","action":"CLOSE"}
+```
+Bridge คำนวณ lot จาก `risk_pct` กับ equity จริงของบัญชีเอง
+
+**สิ่งที่ Pine ทำไม่ได้ ต้องทำที่ bridge/backend**
+- กรองข่าว (Pine อ่านปฏิทินเศรษฐกิจไม่ได้)
+- กรอง spread แบบ real-time
+- ความเสี่ยงรวมข้ามหลาย symbol
+
+**ข้อจำกัดของ backtest บน TradingView**
+- ไม่มี spread จริง ใช้ `slippage` (ค่าเริ่มต้น 15 ticks) เป็นตัวแทน
+- Volume Profile ใช้ tick volume ของ Eightcap และ intrabar 5m ซึ่งย้อนหลังได้จำกัดตามแพ็กเกจ
+- ทุกชั่วโมงในสเปกเป็นเวลา **UTC**: session 07–20, time stop 20:00, Friday cutoff 18:00
 
 ## 12. แผนทดสอบก่อนใช้เงินจริง
 
@@ -273,8 +296,9 @@ ON new bar close (Entry TF):
 
 ---
 
-## 13. เรื่องที่ยังต้องตัดสินใจ
+## 13. การตัดสินใจ
 
-- [ ] แพลตฟอร์ม: MT5 หรือ TradingView
-- [ ] Broker
-- [ ] สินทรัพย์และสไตล์ที่จะเริ่มก่อน (แนะนำ XAUUSD + Day Trade)
+- [x] แพลตฟอร์ม: **TradingView**
+- [x] Broker: **Eightcap** (ส่งคำสั่งผ่าน MT5)
+- [x] เริ่มที่: **XAUUSD + Day Trade**
+- [ ] Bridge: PineConnector (สำเร็จรูป) หรือ backend ALGO MIND (สร้างเอง)
